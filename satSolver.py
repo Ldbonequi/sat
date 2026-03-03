@@ -2,7 +2,7 @@ import re
 
 
 class literal:
-    def __init__(self, identity) -> None:
+    def __init__(self, identity: str) -> None:
         self.identity: str = identity
 
     def eval(self, literal_values: list[bool]):
@@ -25,7 +25,7 @@ class literal:
         return self.identity
 
 
-def parseInput(input):
+def parseInput(input: str):
     """
     takes a cnf expression and returns a count of the literals and a list of literals
     params:
