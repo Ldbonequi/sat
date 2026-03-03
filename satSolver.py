@@ -27,7 +27,7 @@ class literal:
 
 def parseInput(input: str):
     """
-    takes a cnf expression and returns a count of the literals and a list of literals
+    takes a cnf expression and returns a count of the literals and a list of clauses
     params:
         input: cnf expression as string
     """
@@ -48,9 +48,9 @@ def parseInput(input: str):
 
 def main():
     literal_count: int
-    terms: list[list[literal]]
-    literal_count, terms = parseInput("(~x1 + x2).(x3 + ~x4) x1")
-    print(f"terms: {terms}")
+    clauses: list[list[literal]]
+    literal_count, clauses = parseInput("(~x1 + x2).(x3 + ~x4) x1")
+    print(f"terms: {clauses}")
     print(f"literal count: {literal_count}")
 
 
