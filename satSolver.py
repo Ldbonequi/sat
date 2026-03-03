@@ -1,3 +1,6 @@
+import re
+
+
 class literal:
     def __init__(self, identity) -> None:
         self.identity: str = identity
@@ -24,40 +27,31 @@ class literal:
 
 def parseInput(input):
     """
-    takes a cnf expression and returns a count of the literals and a list of terms
+    takes a cnf expression and returns a count of the literals and a list of literals
     params:
         input: cnf expression as string
     """
-    terms: list[list[literal]] = list()
-    term: list[literal] = list()
-    negative: bool = False
+    clauses: list[list[literal]] = list()
     literals: set = set()
 
-    for c in input:
-        if c == "." or c == ")":  # and, start new term
-            if term:
-                terms.append(term)
-                term = list()
-        elif c == "~":  # next number is negative
-            negative = True
-        elif c.isdigit():  # found literal
-            if negative:
-                term.append(literal("~x" + c))
-                negative = False
-            else:
-                term.append(literal("x" + c))
-            literals.add(c)
+    input = input.strip(" +(")  # remove useless chars
+    clause_strs = [c for c in re.split(r"[.)]", input) if c]  # split clauses
+    for c in clause_strs:
+        clause = list()
+        for item in re.findall(r"~?x\d+", c):  # find all literals
+            clause.append(literal(item))
+            literals.add(item.strip("~"))
+        clauses.append(clause)
 
-    if term:
-        terms.append(term)
-    return len(literals), terms
+    return len(literals), clauses
 
 
 def main():
     literal_count: int
     terms: list[list[literal]]
-    literal_count, terms = parseInput("(~x1+ x2) (x3 + ~x4) x1")
+    literal_count, terms = parseInput("(~x1 + x2).(x3 + ~x4) x1")
     print(f"terms: {terms}")
+    print(f"literal count: {literal_count}")
 
 
 if __name__ == "__main__":
