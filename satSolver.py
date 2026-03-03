@@ -23,6 +23,11 @@ class literal:
 
 
 def parseInput(input):
+    """
+    takes a cnf expression and returns a count of the literals and a list of terms
+    params:
+        input: cnf expression as string
+    """
     terms: list[list[literal]] = list()
     term: list[literal] = list()
     negative: bool = False
@@ -49,11 +54,10 @@ def parseInput(input):
 
 
 def main():
-    size: int
+    literal_count: int
     terms: list[list[literal]]
-    size, terms = parseInput("(~x1+ x2) (x3 + ~x4) x1")
+    literal_count, terms = parseInput("(~x1+ x2) (x3 + ~x4) x1")
     print(f"terms: {terms}")
-    print(f"size {size}")
 
 
 if __name__ == "__main__":
