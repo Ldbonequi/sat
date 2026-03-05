@@ -37,6 +37,8 @@ class expression:
         self.literal_count: int = int()
         self.__parseInput__(expression)
         self.literal_values: list[bool | None] = [None] * self.literal_count
+        self.assigned_literals: int = 0
+        self.sat_solutions: list[list[bool | None]] = list()
 
     def __parseInput__(self, input: str):
         """
@@ -59,10 +61,30 @@ class expression:
         return self.expression
 
     def sat(self):
-        pass  # TODO create basic exhaustive search
+        eval = self.expression_eval()
+        if eval is not None:
+            if eval:
+                self.sat_solutions.append(self.literal_values.copy())
+            return eval
 
-    def assign(self, literal: str, value: bool | None):
-        idx = int(literal.strip("x")) - 1
+        next = None
+        for i, x in enumerate(self.literal_values):
+            if x is None:
+                next = i + 1
+                break
+
+        if next is None:
+            return False  # shouldnt happen
+
+        for b in [True, False]:
+            self.assign(next, b)
+            self.sat()
+
+        self.assign(next, None)
+        return False
+
+    def assign(self, literal: int, value: bool | None):
+        idx = literal - 1
         self.literal_values[idx] = value
 
     def expression_eval(self):
@@ -103,11 +125,9 @@ class expression:
 
 
 def main():
-    exp = expression("(~x1 + x2).(x3 + ~x4) x1")
-    exp.assign("x1", True)
-    exp.assign("x2", True)
-    exp.print_literal_values()
-    print([exp.clause_eval(clause) for clause in exp.clauses])
+    exp = expression("(x1 + x2)(x3 + ~x4)(x5 ~x1)(x3 x4 x5)(~x3 x1)")
+    exp.sat()
+    print(f"solutions {exp.sat_solutions if exp.sat_solutions else 'unsat'}")
 
 
 if __name__ == "__main__":
