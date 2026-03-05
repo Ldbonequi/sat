@@ -65,6 +65,21 @@ class expression:
         idx = int(literal.strip("x")) - 1
         self.literal_values[idx] = value
 
+    def expression_eval(self):
+        """
+        returns True if all clauses are true
+        returns None if any clauses are none
+        returns False if no clauses are None and any clause is false
+        """
+        to_return = True
+        for clause in self.clauses:
+            eval = self.clause_eval(clause)
+            if eval is None:
+                return None
+            if not eval:
+                to_return = False
+        return to_return
+
     def clause_eval(self, clause: list[literal]):
         """
         returns True if the clause is satisfied
@@ -75,10 +90,10 @@ class expression:
         """
         to_return = False
         for lit in clause:
-            lit = lit.eval(self.literal_values)
-            if lit is None and not to_return:
+            lit_eval = lit.eval(self.literal_values)
+            if lit_eval is None and not to_return:
                 to_return = None
-            if lit:
+            if lit_eval:
                 return True
         return to_return
 
