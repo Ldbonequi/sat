@@ -12,16 +12,14 @@ class literal:
             literal_values: list of literal_values (xn) at index n-1
         """
         # return opposite of value if value has not
+        val = literal_values[int(self.identity.strip("~x")) - 1]
         if "~" in self.identity:
-            val = literal_values[int(self.identity[2]) - 1]
-            if val:
-                return False
-            elif val is None:
+            if val is None:
                 return None
-            elif not val:
-                return True
+            else:
+                return not val
         else:
-            return literal_values[int(self.identity[1]) - 1]
+            return val
 
     def __str__(self) -> str:  # enable printing literals
         return self.identity
@@ -74,14 +72,20 @@ class expression:
         def backtrack():
             nonlocal any_sat
 
-            while self.unit_propagate():
-                pass  # continue to unit propagate until no changes are made
+            local_assigned = list()
+            while True:
+                assigned = self.unit_propagate()
+                if not assigned:
+                    break
+                local_assigned.extend(assigned)
 
             eval = self.expression_eval()
-            if eval is not None:
+            if eval is not None and None not in self.literal_values:
                 if eval:
                     self.sat_solutions.append(self.literal_values.copy())
                     any_sat = True
+                for v in local_assigned:
+                    self.assign(v, None)
                 return
 
             next = None
@@ -96,6 +100,9 @@ class expression:
             for b in [True, False]:
                 self.assign(next, b)
                 backtrack()
+
+            for v in local_assigned:
+                self.assign(v, None)
 
             self.assign(next, None)
 
@@ -142,13 +149,14 @@ class expression:
         for i in range(1, self.literal_count + 1):
             print(f"x{i}: {self.literal_values[i - 1]}")
 
-    def unit_propagate(self) -> bool:
+    def unit_propagate(self) -> list[int]:
         """
         Performs unit propagation:
         if there is a clause with exactly one unassigned literal and no
         satisfied literal, assign that literal to satisfy the clause.
-        Returns True if any assignment was made, otherwise False.
+        Returns a list of var_nums of modified literals
         """
+        assigned = list()
         for clause in self.clauses:
             unassigned = []
             satisfied = False
@@ -165,8 +173,8 @@ class expression:
                 lit = unassigned[0]
                 var_num = int(lit.identity.strip("~x"))
                 self.assign(var_num, "~" not in lit.identity)
-                return True
-        return False
+                assigned.append(var_num)
+        return assigned
 
     def prime_implicants(self) -> list[tuple]:
         # get all minterms
