@@ -35,12 +35,12 @@ class expression:
         self.expression: str = expression
         self.clauses: list[list[literal]] = list()
         self.literal_count: int = int()
-        self.__parseInput__(expression)
+        self.parseInput(expression)
         self.literal_values: list[bool | None] = [None] * self.literal_count
         self.assigned_literals: int = 0
         self.sat_solutions: list[list[bool | None]] = list()
 
-    def __parseInput__(self, input: str):
+    def parseInput(self, input: str):
         """
         takes a cnf expression and populates sefl.literal_count and self.clauses
         params:
@@ -54,8 +54,12 @@ class expression:
             for item in re.findall(r"~?x\d+", c):  # find all literals
                 clause.append(literal(item))
                 literals.add(item.strip("~"))
-            self.clauses.append(clause)
+            if clause:
+                self.clauses.append(clause)
         self.literal_count = len(literals)
+
+        if not self.clauses:
+            raise Exception("Unable to parse expression")
 
     def __str__(self) -> str:
         return self.expression
@@ -207,77 +211,95 @@ class expression:
         result[diff[0]] = None
         return tuple(result)
 
+    def print_solutions(self):
+        print(f"{len(self.sat_solutions)} SAT Combinations:\n")
+        for idx, sol in enumerate(self.sat_solutions):
+            print(f"  Solution {idx + 1}:")
+            for i, v in enumerate(sol):
+                print(f"    x{i + 1} = {'DC' if v is None else int(v)}")
+        print()
+
+
+def sat_solver(Fixed=False):
+    exp = safe_get_expression("Enter Expression: ")
+    if Fixed:
+        for match in re.findall(
+            r"x(\d+)\s*=\s*([01])", input("Fixed variables (e.g. x1=1 x2=0): ")
+        ):
+            exp.assign(int(match[0]), bool(int(match[1])))
+    if exp.sat():
+        exp.print_solutions()
+    else:
+        print("UNSAT")
+
+
+def compare_functions():
+    f1 = safe_get_expression("Function 1: ")
+    f2 = safe_get_expression("Function 2: ")
+    n = max(f1.literal_count, f2.literal_count)
+    diff = []
+    for mask in range(2**n):
+        assignment = [(mask >> i) & 1 == 1 for i in range(n)]
+        f1.literal_values = assignment[: f1.literal_count]
+        f2.literal_values = assignment[: f2.literal_count]
+        if f1.expression_eval() != f2.expression_eval():
+            diff.append(assignment)
+    if not diff:
+        print("EQUIVALENT")
+    else:
+        print("NOT EQUIVALENT — differing inputs:")
+        for a in diff:
+            print({f"x{i + 1}": int(v) for i, v in enumerate(a)})
+
+
+def prime_implicants():
+    exp = safe_get_expression("Enter Expression: ")
+    pis = exp.prime_implicants()
+    if not pis:
+        print("UNSAT")
+    else:
+        terms = ", ".join(
+            "".join(
+                ("~" if not v else "") + f"x{i + 1}"
+                for i, v in enumerate(pi)
+                if v is not None
+            )
+            for pi in pis
+        )
+        print(f"\nPrime Implicants: {terms}")
+
+
+def safe_get_expression(message) -> expression:
+    try:
+        exp = expression(input(message).strip())
+    except Exception as e:
+        print()
+        print(f"{e}, please try again:")
+        main()
+        return
+    return exp
+
 
 def main():
+    print("Please Select An Option:")
     print("1) SAT Solver")
     print("2) SAT Solver w/ Fixed Assignments")
     print("3) Compare Functions (F1 XOR F2)")
     print("4) Prime Implicants")
     choice = input("Enter Selection Choice: ").strip()
-
     if choice == "1":
-        exp = expression(input("Enter Expression: ").strip())
-        exp.sat()
-        if not exp.sat_solutions:
-            print("UNSAT")
-        else:
-            print(f"{len(exp.sat_solutions)} SAT Combinations:\n")
-            for idx, sol in enumerate(exp.sat_solutions):
-                print(f"  Solution {idx + 1}:")
-                for i, v in enumerate(sol):
-                    print(f"    x{i + 1} = {'DC' if v is None else int(v)}")
-                print()
-
+        sat_solver()
     elif choice == "2":
-        exp = expression(input("Enter Expression: ").strip())
-        for match in re.findall(
-            r"x(\d+)\s*=\s*([01])", input("Fixed variables (e.g. x1=1 x2=0): ")
-        ):
-            exp.assign(int(match[0]), bool(int(match[1])))
-        exp.sat()
-        if not exp.sat_solutions:
-            print("UNSAT")
-        else:
-            print(f"{len(exp.sat_solutions)} SAT Combinations:\n")
-            for idx, sol in enumerate(exp.sat_solutions):
-                print(f"  Solution {idx + 1}:")
-                for i, v in enumerate(sol):
-                    print(f"    x{i + 1} = {'DC' if v is None else int(v)}")
-                print()
-
+        sat_solver(Fixed=True)
     elif choice == "3":
-        f1 = expression(input("Function 1: ").strip())
-        f2 = expression(input("Function 2: ").strip())
-        n = max(f1.literal_count, f2.literal_count)
-        diff = []
-        for mask in range(2**n):
-            assignment = [(mask >> i) & 1 == 1 for i in range(n)]
-            f1.literal_values = assignment[: f1.literal_count]
-            f2.literal_values = assignment[: f2.literal_count]
-            if f1.expression_eval() != f2.expression_eval():
-                diff.append(assignment)
-        if not diff:
-            print("EQUIVALENT")
-        else:
-            print("NOT EQUIVALENT — differing inputs:")
-            for a in diff:
-                print({f"x{i + 1}": int(v) for i, v in enumerate(a)})
-
+        compare_functions()
     elif choice == "4":
-        exp = expression(input("Enter Expression: ").strip())
-        pis = exp.prime_implicants()
-        if not pis:
-            print("UNSAT")
-        else:
-            terms = ", ".join(
-                "".join(
-                    ("~" if not v else "") + f"x{i + 1}"
-                    for i, v in enumerate(pi)
-                    if v is not None
-                )
-                for pi in pis
-            )
-            print(f"\nPrime Implicants: {terms}")
+        prime_implicants()
+    else:
+        print()
+        print(f"Could Not Parse <{choice}>, please try again.")
+        main()
+        return
 
 
 if __name__ == "__main__":
