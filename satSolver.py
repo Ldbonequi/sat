@@ -130,11 +130,146 @@ class expression:
         for i in range(1, self.literal_count + 1):
             print(f"x{i}: {self.literal_values[i - 1]}")
 
+    def unit_propagate(self) -> bool:
+        """
+        Performs unit propagation:
+        if there is a clause with exactly one unassigned literal and no
+        satisfied literal, assign that literal to satisfy the clause.
+        Returns True if any assignment was made, otherwise False.
+        """
+        for clause in self.clauses:
+            unassigned = []
+            satisfied = False
+            for lit in clause:
+                val = lit.eval(self.literal_values)
+                if val is True:
+                    satisfied = True
+                    break
+                if val is None:
+                    unassigned.append(lit)
+            if satisfied:
+                continue
+            if len(unassigned) == 1:
+                lit = unassigned[0]
+                var_num = int(re.search(r"\d+", lit.identity).group())
+                self.assign(var_num, "~" not in lit.identity)
+                return True
+        return False
+
+    def prime_implicants(self) -> list[tuple]:
+        # get all minterms
+        n = self.literal_count
+        minterms = []
+        for mask in range(2**n):
+            assignment = tuple((mask >> i) & 1 == 1 for i in range(n))
+            self.literal_values = list(assignment)
+            if self.expression_eval() is True:
+                minterms.append(assignment)
+        self.literal_values = [None] * n
+
+        # Merge the pairs
+        current = list(dict.fromkeys(minterms))
+        primes = []
+        while current:
+            merged = []
+            used = set()
+            for i in range(len(current)):
+                for j in range(i + 1, len(current)):
+                    result = self.merge(current[i], current[j])
+                    if result is not None:
+                        if result not in merged:
+                            merged.append(result)
+                        used.add(i)
+                        used.add(j)
+            for i, imp in enumerate(current):
+                if i not in used:
+                    primes.append(imp)
+            current = list(dict.fromkeys(merged))
+        return primes
+
+    def merge(self, a, b):
+        diff = [
+            i
+            for i in range(len(a))
+            if a[i] != b[i] and a[i] is not None and b[i] is not None
+        ]
+        if len(diff) != 1:
+            return None
+        result = list(a)
+        result[diff[0]] = None
+        return tuple(result)
+
 
 def main():
-    exp = expression("(x1 + x2)(x3 + x4)")
-    print(f"sat: {exp.sat()}")
-    print(f"solutions: {exp.sat_solutions if exp.sat_solutions else 'unsat'}")
+    print("1) SAT Solver")
+    print("2) SAT Solver w/ Fixed Assignments")
+    print("3) Compare Functions (F1 XOR F2)")
+    print("4) Prime Implicants")
+    choice = input("Enter Selection Choice: ").strip()
+
+    if choice == "1":
+        exp = expression(input("Enter Expression: ").strip())
+        exp.sat()
+        if not exp.sat_solutions:
+            print("UNSAT")
+        else:
+            print(f"{len(exp.sat_solutions)} SAT Combinations:\n")
+            for idx, sol in enumerate(exp.sat_solutions):
+                print(f"  Solution {idx + 1}:")
+                for i, v in enumerate(sol):
+                    print(f"    x{i + 1} = {'DC' if v is None else int(v)}")
+                print()
+
+    elif choice == "2":
+        exp = expression(input("Enter Expression: ").strip())
+        for match in re.findall(
+            r"x(\d+)\s*=\s*([01])", input("Fixed variables (e.g. x1=1 x2=0): ")
+        ):
+            exp.assign(int(match[0]), bool(int(match[1])))
+        exp.sat()
+        if not exp.sat_solutions:
+            print("UNSAT")
+        else:
+            print(f"{len(exp.sat_solutions)} SAT Combinations:\n")
+            for idx, sol in enumerate(exp.sat_solutions):
+                print(f"  Solution {idx + 1}:")
+                for i, v in enumerate(sol):
+                    print(f"    x{i + 1} = {'DC' if v is None else int(v)}")
+                print()
+
+    elif choice == "3":
+        f1 = expression(input("Function 1: ").strip())
+        f2 = expression(input("Function 2: ").strip())
+        n = max(f1.literal_count, f2.literal_count)
+        diff = []
+        for mask in range(2**n):
+            assignment = [(mask >> i) & 1 == 1 for i in range(n)]
+            f1.literal_values = assignment[: f1.literal_count]
+            f2.literal_values = assignment[: f2.literal_count]
+            if f1.expression_eval() != f2.expression_eval():
+                diff.append(assignment)
+        if not diff:
+            print("EQUIVALENT")
+        else:
+            print("NOT EQUIVALENT — differing inputs:")
+            for a in diff:
+                print({f"x{i + 1}": int(v) for i, v in enumerate(a)})
+
+    elif choice == "4":
+        exp = expression(input("Enter Expression: ").strip())
+        pis = exp.prime_implicants()
+        if not pis:
+            print("UNSAT")
+        else:
+            terms = ", ".join(
+                "".join(
+                    ("~" if not v else "") + f"x{i + 1}"
+                    for i, v in enumerate(pi)
+                    if v is not None
+                )
+                for pi in pis
+            )
+            print(f"\nPrime Implicants: {terms}")
 
 
 if __name__ == "__main__":
