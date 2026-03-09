@@ -217,7 +217,7 @@ class expression:
             print(f"  Solution {idx + 1}:")
             for i, v in enumerate(sol):
                 print(f"    x{i + 1} = {'DC' if v is None else int(v)}")
-        print()
+            print()
 
 
 def sat_solver(Fixed=False):
