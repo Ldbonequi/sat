@@ -61,27 +61,34 @@ class expression:
         return self.expression
 
     def sat(self):
-        eval = self.expression_eval()
-        if eval is not None:
-            if eval:
-                self.sat_solutions.append(self.literal_values.copy())
-            return eval
+        any_sat = False
 
-        next = None
-        for i, x in enumerate(self.literal_values):
-            if x is None:
-                next = i + 1
-                break
+        def backtrack():
+            nonlocal any_sat
+            eval = self.expression_eval()
+            if eval is not None:
+                if eval:
+                    self.sat_solutions.append(self.literal_values.copy())
+                    any_sat = True
+                return
 
-        if next is None:
-            return False  # shouldnt happen
+            next = None
+            for i, x in enumerate(self.literal_values):
+                if x is None:
+                    next = i + 1
+                    break
 
-        for b in [True, False]:
-            self.assign(next, b)
-            self.sat()
+            if next is None:
+                return False  # shouldnt happen
 
-        self.assign(next, None)
-        return False
+            for b in [True, False]:
+                self.assign(next, b)
+                backtrack()
+
+            self.assign(next, None)
+
+        backtrack()
+        return any_sat
 
     def assign(self, literal: int, value: bool | None):
         idx = literal - 1
@@ -125,9 +132,9 @@ class expression:
 
 
 def main():
-    exp = expression("(x1 + x2)(x3 + ~x4)(x5 ~x1)(x3 x4 x5)(~x3 x1)")
-    exp.sat()
-    print(f"solutions {exp.sat_solutions if exp.sat_solutions else 'unsat'}")
+    exp = expression("(x1 + x2)(x3 + x4)")
+    print(f"sat: {exp.sat()}")
+    print(f"solutions: {exp.sat_solutions if exp.sat_solutions else 'unsat'}")
 
 
 if __name__ == "__main__":
