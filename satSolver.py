@@ -61,10 +61,18 @@ class expression:
         return self.expression
 
     def sat(self):
+        """
+        Determines if the expression is sat, adding all satisfying Combinations to self.sat_solutions.
+        returns True if expresssion is sat, False otherwise
+        """
         any_sat = False
 
         def backtrack():
             nonlocal any_sat
+
+            while self.unit_propagate():
+                pass  # continue to unit propagate until no changes are made
+
             eval = self.expression_eval()
             if eval is not None:
                 if eval:
@@ -151,7 +159,7 @@ class expression:
                 continue
             if len(unassigned) == 1:
                 lit = unassigned[0]
-                var_num = int(re.search(r"\d+", lit.identity).group())
+                var_num = int(lit.identity.strip("~x"))
                 self.assign(var_num, "~" not in lit.identity)
                 return True
         return False
