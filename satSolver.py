@@ -35,7 +35,6 @@ class expression:
         self.literal_count: int = int()
         self.parseInput(expression)
         self.literal_values: list[bool | None] = [None] * self.literal_count
-        self.assigned_literals: int = 0
         self.sat_solutions: list[list[bool | None]] = list()
 
     def parseInput(self, input: str):
@@ -62,10 +61,12 @@ class expression:
     def __str__(self) -> str:
         return self.expression
 
-    def sat(self):
+    def sat(self, expand=False):
         """
         Determines if the expression is sat, adding all satisfying Combinations to self.sat_solutions.
         returns True if expresssion is sat, False otherwise
+        params:
+            expand - whether to expand dont cares
         """
         any_sat = False
 
@@ -80,10 +81,14 @@ class expression:
                 local_assigned.extend(assigned)
 
             eval = self.expression_eval()
-            if eval is not None and None not in self.literal_values:
+            if eval is not None and (
+                not expand or None not in self.literal_values
+            ):  # prune sat branches to save time if expand is false
                 if eval:
                     self.sat_solutions.append(self.literal_values.copy())
                     any_sat = True
+
+                # unassign literals assigned by unit_propagate before returning
                 for v in local_assigned:
                     self.assign(v, None)
                 return
@@ -101,6 +106,7 @@ class expression:
                 self.assign(next, b)
                 backtrack()
 
+            # unassign literals assigned by unit_propagate before returning
             for v in local_assigned:
                 self.assign(v, None)
 
@@ -110,6 +116,12 @@ class expression:
         return any_sat
 
     def assign(self, literal: int, value: bool | None):
+        """
+        Assigns a literal to a boolean value
+        params:
+            literal: literal number to assign (n assigns xn)
+            value: boolean value that literal will be assigned to
+        """
         idx = literal - 1
         self.literal_values[idx] = value
 
@@ -145,10 +157,6 @@ class expression:
                 return True
         return to_return
 
-    def print_literal_values(self):
-        for i in range(1, self.literal_count + 1):
-            print(f"x{i}: {self.literal_values[i - 1]}")
-
     def unit_propagate(self) -> list[int]:
         """
         Performs unit propagation:
@@ -176,67 +184,73 @@ class expression:
                 assigned.append(var_num)
         return assigned
 
-    def prime_implicants(self) -> list[tuple]:
-        # get all minterms
-        n = self.literal_count
-        minterms = []
-        for mask in range(2**n):
-            assignment = tuple((mask >> i) & 1 == 1 for i in range(n))
-            self.literal_values = list(assignment)
-            if self.expression_eval() is True:
-                minterms.append(assignment)
-        self.literal_values = [None] * n
-
-        # Merge the pairs
-        current = list(dict.fromkeys(minterms))
-        primes = []
-        while current:
-            merged = []
-            used = set()
-            for i in range(len(current)):
-                for j in range(i + 1, len(current)):
-                    result = self.merge(current[i], current[j])
-                    if result is not None:
-                        if result not in merged:
-                            merged.append(result)
-                        used.add(i)
-                        used.add(j)
-            for i, imp in enumerate(current):
-                if i not in used:
-                    primes.append(imp)
-            current = list(dict.fromkeys(merged))
-        return primes
-
-    def merge(self, a, b):
-        diff = [
-            i
-            for i in range(len(a))
-            if a[i] != b[i] and a[i] is not None and b[i] is not None
-        ]
-        if len(diff) != 1:
-            return None
-        result = list(a)
-        result[diff[0]] = None
-        return tuple(result)
-
-    def print_solutions(self):
-        print(f"{len(self.sat_solutions)} SAT Combinations:\n")
+    def print_solutions(self, numbers=True):
+        """
+        Prints all solutions found by expression.sat()
+        params:
+            numbers: whether to print solution Numbers
+        """
         for idx, sol in enumerate(self.sat_solutions):
-            print(f"  Solution {idx + 1}:")
+            if numbers:
+                print(f"  Solution {idx + 1}:")
             for i, v in enumerate(sol):
                 print(f"    x{i + 1} = {'DC' if v is None else int(v)}")
             print()
 
+    def merge_solutions(self):
+        """
+        Repeatedly merges any solution pairs with a single difference in order to find the smallest
+        returns smallest solution with the least fixed assignments / max dont cares
+        """
+        changed = True
+        while changed:
+            changed = False
+            i = 0
+            while i < len(self.sat_solutions):
+                for j in range(i + 1, len(self.sat_solutions)):
+                    diffs = [
+                        k
+                        for k in range(len(self.sat_solutions[i]))
+                        if self.sat_solutions[i][k] != self.sat_solutions[j][k]
+                    ]
+                    if len(diffs) == 1:
+                        self.sat_solutions[i][diffs[0]] = None
+                        del self.sat_solutions[j]
+                        changed = True
+                        break
+                if changed:
+                    break
+                i += 1
 
-def sat_solver(Fixed=False):
+        return max(self.sat_solutions, key=lambda s: s.count(None))
+
+
+def sat_solver(Fixed=False, smallest=False, expand=None, all_solutions=True):
+    if expand is None:
+        choice = input("Would you like to expand out Dont Cares (y/n):")
+        if choice.lower() == "y":
+            expand = True
+        elif choice.lower() == "n":
+            expand = False
+        else:
+            print("could not parse y or n please try again:")
+            main()
+
     exp = safe_get_expression("Enter Expression: ")
     if Fixed:
         for match in re.findall(
             r"x(\d+)\s*=\s*([01])", input("Fixed variables (e.g. x1=1 x2=0): ")
         ):
             exp.assign(int(match[0]), bool(int(match[1])))
-    if exp.sat():
-        exp.print_solutions()
+    if exp.sat(expand):
+        if all_solutions:
+            print(f"{len(exp.sat_solutions)} SAT Combinations:\n")
+            exp.print_solutions()
+
+        if smallest:
+            exp.sat_solutions = [exp.merge_solutions()]
+            print("smallest solution:")
+            exp.print_solutions(numbers=False)
     else:
         print("UNSAT")
 
@@ -255,7 +269,7 @@ def compare_functions():
     if not diff:
         print("EQUIVALENT")
     else:
-        print("NOT EQUIVALENT — differing inputs:")
+        print("NOT EQUIVALENT — differing solutions:")
         for a in diff:
             print({f"x{i + 1}": int(v) for i, v in enumerate(a)})
 
@@ -292,17 +306,17 @@ def main():
     print("Please Select An Option:")
     print("1) SAT Solver")
     print("2) SAT Solver w/ Fixed Assignments")
-    print("3) Compare Functions (F1 XOR F2)")
-    print("4) Prime Implicants")
+    print("3) SAT Solver Smallest Solution")
+    print("4) Compare Functions (F1 XOR F2)")
     choice = input("Enter Selection Choice: ").strip()
     if choice == "1":
         sat_solver()
     elif choice == "2":
         sat_solver(Fixed=True)
     elif choice == "3":
-        compare_functions()
+        sat_solver(all_solutions=False, smallest=True, expand=False)
     elif choice == "4":
-        prime_implicants()
+        compare_functions()
     else:
         print()
         print(f"Could Not Parse <{choice}>, please try again.")
