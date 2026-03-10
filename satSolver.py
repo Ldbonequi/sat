@@ -227,12 +227,13 @@ class expression:
 
 def sat_solver(Fixed=False, smallest=False, expand=None, all_solutions=True):
     if expand is None:
-        choice = input("Would you like to expand out Dont Cares (y/n):")
+        choice = input("Would you like to expand out Dont Cares (y/n): ")
         if choice.lower() == "y":
             expand = True
         elif choice.lower() == "n":
             expand = False
         else:
+            print()
             print("could not parse y or n please try again:")
             main()
 
@@ -272,23 +273,6 @@ def compare_functions():
         print("NOT EQUIVALENT — differing solutions:")
         for a in diff:
             print({f"x{i + 1}": int(v) for i, v in enumerate(a)})
-
-
-def prime_implicants():
-    exp = safe_get_expression("Enter Expression: ")
-    pis = exp.prime_implicants()
-    if not pis:
-        print("UNSAT")
-    else:
-        terms = ", ".join(
-            "".join(
-                ("~" if not v else "") + f"x{i + 1}"
-                for i, v in enumerate(pi)
-                if v is not None
-            )
-            for pi in pis
-        )
-        print(f"\nPrime Implicants: {terms}")
 
 
 def safe_get_expression(message) -> expression:
